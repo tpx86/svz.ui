@@ -1,3 +1,4 @@
+// hi there O_o
 import React from 'react';
 import ReactDOM from 'react-dom';
 import {BrowserRouter, Link, Route, Switch} from "react-router-dom";
@@ -6,17 +7,18 @@ class BookList extends React.Component {
     
     constructor(props) {
         super(props);
-        this.state = {books: []};
+        this.state = {books: [], nodeName: ''};
     }
 
     componentDidMount() {
-        fetch('https://localhost:5001/api/books')
+        let nodeName = '';
+        fetch('http://0.0.0.0:4000/api/books')
             .then(function(resp) {
+                nodeName = resp.headers.get('X-Node-Name');
                 return resp.json();
             })
             .then((myJson) => {
-                this.setState({books: myJson});
-                console.warn('got API resp');
+                this.setState({books: myJson, nodeName: nodeName});
             });
     }
     
@@ -26,9 +28,14 @@ class BookList extends React.Component {
             barr.push(<li key={b.bookId}><Link to={`/books/${b.bookId}`}>{b.title}</Link></li>);
         }
         return (
-            <ul>
-                {barr}
-            </ul>
+            <div>
+                <ul>
+                    {barr}
+                </ul>
+                {
+                    this.state.nodeName ? (<span>Node name = {this.state.nodeName}</span>) : null
+                }
+            </div>
         );
     }
 }
@@ -47,6 +54,8 @@ class Book extends React.Component {
     
     componentDidMount() {
         let bookId;
+        let nodeName = '';
+        let fromRedis = '';
         if (this.props.match) {
             let bookIdPar = this.props.match.params.number;
             bookId = parseInt(bookIdPar, 10);
@@ -56,23 +65,39 @@ class Book extends React.Component {
             return;
         }
         
-        fetch(`https://localhost:5001/api/books/${bookId}`)
-            .then(function(resp) {return resp.json();})
+        fetch(`http://0.0.0.0:4000/api/books/${bookId}`)
+            .then(function(resp) {
+                nodeName = resp.headers.get('X-Node-Name');
+                fromRedis = resp.headers.get('X-From-Redis');
+                return resp.json();
+            })
             .then((respJson) => {
-                 this.setState({book: respJson});
+                 this.setState({book: respJson, fromRedis: fromRedis, nodeName: nodeName});
             });
     }
     
     render() {
         let b = this.state.book;
         return (
-            <ul>
-            <li>{b.title}</li>
-            <li>{b.authors}</li>
-            <li>{b.category}</li>
-            <li>{b.isbn}</li>
-            <li>{b.description}</li>
-            </ul>    
+            <div>
+                <ul>
+                <li>{b.title}</li>
+                <li>{b.authors}</li>
+                <li>{b.category}</li>
+                <li>{b.isbn}</li>
+                <li>{b.description}</li>
+                </ul>
+                
+                {this.state.nodeName ? 
+                     (<span>Node name = {this.state.nodeName}</span>)   
+                    : null
+                } 
+                <br />
+                { this.state.fromRedis ?
+                    (<span>From Redis = {this.state.fromRedis}</span>)    
+                    : null
+                }
+            </div>
         );
     }
 }
@@ -135,7 +160,7 @@ class Search extends React.Component {
             return;
         }
 
-        fetch(`https://localhost:5001/api/books/search?query=${this.state.query}`)
+        fetch(`http://0.0.0.0:4000/api/books/search?query=${this.state.query}`)
             .then(function(resp) {return resp.json();})
             .then((respJson) => {
                 this.setState({books: respJson});
@@ -148,7 +173,6 @@ class Search extends React.Component {
     }
     
     render() {
-        
         var books = [];
         for(let bo of this.state.books) {
             books.push(<Book key={bo.bookId} book={bo}></Book>);
@@ -156,7 +180,7 @@ class Search extends React.Component {
         
         return (
             <div>
-                <input name="query" type="text" onChange={ (evt) => this.getInputValue(evt) } style={{width: '300px'}}/>
+                <input placeholder="Type 'atlas' and click 'Go!' :D" name="query" type="text" onChange={ (evt) => this.getInputValue(evt) } style={{width: '300px'}}/>
                 <button onClick={() => this.handleClick()}>Go!</button>
                 <br />
                 {books}
